@@ -158,7 +158,7 @@ void _Radio_SPI_Unselect() {
 	HAL_GPIO_WritePin( radio_ncs_gpio, radio_ncs_pin, GPIO_PIN_SET );
 }
 
-void _Radio_Set_Mode( uint8_t mode ) {
+uint8_t _Radio_Set_Mode( uint8_t mode ) {
 	uint8_t op_mode = _Radio_SPI_Read( RADIO_REG_01_OPMODE );
 
 	// Clear all the op mode bits
@@ -174,7 +174,10 @@ void _Radio_Set_Mode( uint8_t mode ) {
 	uint8_t flags = 0;
 	do {
 		flags = _Radio_SPI_Read( RADIO_REG_27_IRQFLAGS1 );
+		HAL_Delay( 1 );
 	} while ( !( flags & RADIO_IRQFLAGS1_MODEREADY ) );
+
+	return RADIO_SUCCESS;
 }
 
 void _Radio_Set_Mode_Idle() {
@@ -316,40 +319,40 @@ void _Radio_Transmit_Test() {
 
 	radio_buffer[4] = 0x1;		// Version
 	radio_buffer[5] = 0x10;		// Reserved
-	radio_buffer[6] = 0x10;		// Reserved
-	radio_buffer[7] = 0x10;		// Reserved
+	radio_buffer[6] = 0x20;		// Reserved
+	radio_buffer[7] = 0x30;		// Reserved
 
-	radio_buffer[8] = 0x10;		// Misc
-	radio_buffer[9] = 0x10;		// Misc
-	radio_buffer[10] = 0x10;	// Misc
-	radio_buffer[11] = 0x10;	// Misc
+	radio_buffer[8] = 0x40;		// Misc
+	radio_buffer[9] = 0x50;		// Misc
+	radio_buffer[10] = 0x60;	// Misc
+	radio_buffer[11] = 0x70;	// Misc
 
-	radio_buffer[12] = 0x10;	// Misc
-	radio_buffer[13] = 0x10;	// Misc
-	radio_buffer[14] = 0x10;	// Misc
-	radio_buffer[15] = 0x10;	// Misc
+	radio_buffer[12] = 0x80;	// Misc
+	radio_buffer[13] = 0x90;	// Misc
+	radio_buffer[14] = 0xA0;	// Misc
+	radio_buffer[15] = 0xB0;	// Misc
 
-	radio_buffer[16] = 0x10;	// Misc
-	radio_buffer[17] = 0x10;	// Misc
-	radio_buffer[18] = 0x10;	// Misc
-	radio_buffer[19] = 0x10;	// Misc
+	radio_buffer[16] = 0xC0;	// Misc
+	radio_buffer[17] = 0xD0;	// Misc
+	radio_buffer[18] = 0xE0;	// Misc
+	radio_buffer[19] = 0xF0;	// Misc
 
 	_Radio_SPI_Select();
 	_Radio_SPI_Transfer( RADIO_REG_00_FIFO | 0x80 );
 	for ( uint8_t i = 0; i < 20; i++ ) {
 		_Radio_SPI_Transfer( radio_buffer[i] );
 	}
-	_Radio_SPI_Unselect();
 
 	HAL_Delay( 5 );
 
 	// Start the transmitter
-	_Radio_SPI_Select();
 	_Radio_Set_Mode_Tx();
 
-	// Wait for the transmission to finish
-	while ( ( _Radio_SPI_Read( RADIO_REG_28_IRQFLAGS2 ) & RADIO_IRQFLAGS2_PACKETSENT ) == 0x00 ) {
-	}
+	uint8_t flags = 0;
+		do {
+			flags = _Radio_SPI_Read( RADIO_REG_28_IRQFLAGS2 );
+			HAL_Delay( 1 );
+		} while ( !( flags & RADIO_IRQFLAGS2_PACKETSENT ) );
 
 	_Radio_Set_Mode_Idle();
 	_Radio_SPI_Unselect();
@@ -382,23 +385,23 @@ uint8_t Radio_Init() {
 		return RADIO_FAILURE;
 	}
 
-	//_Radio_SPI_Select();
+	_Radio_SPI_Select();
 
-	//_Radio_Set_Mode_Idle();
+	_Radio_Set_Mode_Idle();
 
-	//_Radio_SPI_Write( RADIO_REG_3C_FIFOTHRESH, RADIO_FIFOTHRESH_TXSTARTCONDITION_NOTEMPTY | 0x0F );
-	//_Radio_SPI_Write( RADIO_REG_6F_TESTDAGC, RADIO_TESTDAGC_CONTINUOUSDAGC_IMPROVED_LOWBETAOFF );
-	//_Radio_SPI_Write( RADIO_REG_5A_TESTPA1, RADIO_TESTPA1_NORMAL );
-	//_Radio_SPI_Write( RADIO_REG_5C_TESTPA2, RADIO_TESTPA2_NORMAL );
+	_Radio_SPI_Write( RADIO_REG_3C_FIFOTHRESH, RADIO_FIFOTHRESH_TXSTARTCONDITION_NOTEMPTY | 0x0F );
+	_Radio_SPI_Write( RADIO_REG_6F_TESTDAGC, RADIO_TESTDAGC_CONTINUOUSDAGC_IMPROVED_LOWBETAOFF );
+	_Radio_SPI_Write( RADIO_REG_5A_TESTPA1, RADIO_TESTPA1_NORMAL );
+	_Radio_SPI_Write( RADIO_REG_5C_TESTPA2, RADIO_TESTPA2_NORMAL );
 
-	//_Radio_Set_Sync_Words();
-	//_Radio_Set_Modem_Config();
-	//_Radio_Set_Preamble_Length( 4 );
-	//_Radio_Set_Frequency( 9150 ); // 915.0 MHz
-	//_Radio_Reset_Encryption_Key();
-	//_Radio_Set_Tx_Power( 10 ); // +10 dBm
+	_Radio_Set_Sync_Words();
+	_Radio_Set_Modem_Config();
+	_Radio_Set_Preamble_Length( 4 );
+	_Radio_Set_Frequency( 9150 ); // 915.0 MHz
+	_Radio_Reset_Encryption_Key();
+	_Radio_Set_Tx_Power( 10 ); // +10 dBm
 
-	//_Radio_SPI_Unselect();
+	_Radio_SPI_Unselect();
 
 	return RADIO_SUCCESS;
 }
@@ -433,7 +436,7 @@ void Radio_Run() {
 		// Once we have data from core, transmit it every 5 seconds
 		if ( radio_loop_count >= 10 ) {
 			radio_loop_count = 0;
-			//_Radio_Transmit_Test();
+			_Radio_Transmit_Test();
 		}
 	}
 
