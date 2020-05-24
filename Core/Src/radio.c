@@ -18,6 +18,8 @@
 #define RADIO_SUCCESS 1
 #define RADIO_FAILURE 0
 
+#define RADIO_MAX_MODE_TIMEOUT 100
+
 #define RADIO_MAX_MESSAGE_LEN 60
 
 // Register Addresses
@@ -113,35 +115,6 @@ static uint8_t radio_buffer[RADIO_MAX_MESSAGE_LEN];
 
 static uint8_t radio_loop_count = 0;
 
-uint8_t _Radio_SPI_Transfer( uint8_t reg ) {
-	if ( ! radio_hspi ) {
-		return 0;
-	}
-
-	uint8_t data = 0;
-	HAL_SPI_Transmit( radio_hspi, &reg, 1, 10 );
-	HAL_SPI_Receive( radio_hspi, &data, 1, 10 );
-
-	return data;
-}
-
-uint8_t _Radio_SPI_Read( uint8_t reg ) {
-	return _Radio_SPI_Transfer( reg );
-}
-
-uint8_t _Radio_SPI_Write( uint8_t reg, const uint8_t value ) {
-	if ( ! radio_hspi ) {
-		return RADIO_FAILURE;
-	}
-
-	uint8_t data[2];
-	data[0] = reg | 0x80; // Set the MSb high to indicate a write operation
-	data[1] = value;
-
-	HAL_StatusTypeDef hal_status = HAL_SPI_Transmit( radio_hspi, data, 2, 10 );
-	return hal_status == HAL_OK ? RADIO_SUCCESS : RADIO_FAILURE;
-}
-
 void _Radio_SPI_Select() {
 	if ( ! radio_ncs_gpio ) {
 		return;
@@ -158,6 +131,60 @@ void _Radio_SPI_Unselect() {
 	HAL_GPIO_WritePin( radio_ncs_gpio, radio_ncs_pin, GPIO_PIN_SET );
 }
 
+void _Radio_SPI_FIFO_Read( uint8_t *data, uint8_t count ) {
+	if ( ! radio_hspi ) {
+		return;
+	}
+
+	uint8_t reg = 0x0; // MSb low to indicate a read operation
+	_Radio_SPI_Select();
+	HAL_SPI_Transmit( radio_hspi, &reg, 1, 10 );
+	HAL_SPI_Receive( radio_hspi, data, count, 10 );
+	_Radio_SPI_Unselect();
+}
+
+void _Radio_SPI_FIFO_Write( uint8_t *data, uint8_t count ) {
+	if ( ! radio_hspi ) {
+		return;
+	}
+
+	uint8_t reg = 0x80; // MSb high to indicate a write operation
+	_Radio_SPI_Select();
+	HAL_SPI_Transmit( radio_hspi, &reg, 1, 10 );
+	HAL_SPI_Transmit( radio_hspi, data, count, 10 );
+	_Radio_SPI_Unselect();
+}
+
+uint8_t _Radio_SPI_Read( uint8_t reg ) {
+	if ( ! radio_hspi ) {
+		return 0;
+	}
+
+	uint8_t data = 0;
+	_Radio_SPI_Select();
+	HAL_SPI_Transmit( radio_hspi, &reg, 1, 10 );
+	HAL_SPI_Receive( radio_hspi, &data, 1, 10 );
+	_Radio_SPI_Unselect();
+
+	return data;
+}
+
+uint8_t _Radio_SPI_Write( uint8_t reg, const uint8_t value ) {
+	if ( ! radio_hspi ) {
+		return RADIO_FAILURE;
+	}
+
+	uint8_t data[2];
+	data[0] = reg | 0x80; // Set the MSb high to indicate a write operation
+	data[1] = value;
+
+	_Radio_SPI_Select();
+	HAL_StatusTypeDef hal_status = HAL_SPI_Transmit( radio_hspi, data, 2, 10 );
+	_Radio_SPI_Unselect();
+
+	return hal_status == HAL_OK ? RADIO_SUCCESS : RADIO_FAILURE;
+}
+
 uint8_t _Radio_Set_Mode( uint8_t mode ) {
 	uint8_t op_mode = _Radio_SPI_Read( RADIO_REG_01_OPMODE );
 
@@ -165,17 +192,23 @@ uint8_t _Radio_Set_Mode( uint8_t mode ) {
 	op_mode &= ~RADIO_OPMODE_MODE;
 
 	// Set the mode bits
-	op_mode |= mode;
+	op_mode |= ( mode & RADIO_OPMODE_MODE );
 
 	// Write it back
 	_Radio_SPI_Write( RADIO_REG_01_OPMODE, op_mode );
 
-	// Wait for mode to change (dangerous)
+	// Wait for mode to change
 	uint8_t flags = 0;
+	uint8_t timeout_counter = 0;
 	do {
 		flags = _Radio_SPI_Read( RADIO_REG_27_IRQFLAGS1 );
 		HAL_Delay( 1 );
-	} while ( !( flags & RADIO_IRQFLAGS1_MODEREADY ) );
+		timeout_counter++;
+	} while ( ( timeout_counter < RADIO_MAX_MODE_TIMEOUT ) && !( flags & RADIO_IRQFLAGS1_MODEREADY ) );
+
+	if ( timeout_counter >= RADIO_MAX_MODE_TIMEOUT ) {
+		return RADIO_FAILURE;
+	}
 
 	return RADIO_SUCCESS;
 }
@@ -199,13 +232,22 @@ void _Radio_Set_Mode_Tx() {
  * Sets the sync words to 0x2d, 0xd4
  */
 void _Radio_Set_Sync_Words() {
+	uint8_t synclen = 2;
+
 	uint8_t syncconfig = _Radio_SPI_Read( RADIO_REG_2E_SYNCCONFIG );
 	_Radio_SPI_Write( RADIO_REG_2F_SYNCVALUE1, 0x2D );
 	_Radio_SPI_Write( RADIO_REG_30_SYNCVALUE2, 0xD4 );
 
-	syncconfig |= RADIO_SYNCCONFIG_SYNCON;
+	// Clear all the bits in the sync config register except for the size
 	syncconfig &= ~RADIO_SYNCCONFIG_SYNCSIZE;
-	syncconfig |= 2 << 3;
+
+	// Set the size
+	syncconfig |= ( synclen + 1 ) << 3;
+
+	// Make sure Sync is on
+	syncconfig |= RADIO_SYNCCONFIG_SYNCON;
+
+	// Write the result
 	_Radio_SPI_Write( RADIO_REG_2E_SYNCCONFIG, syncconfig );
 }
 
@@ -217,24 +259,22 @@ void _Radio_Set_Modem_Config() {
 
 	_Radio_SPI_Write( RADIO_REG_02_DATAMODUL, data_mod );
 
-	// Bit Rate (MSB)
-	_Radio_SPI_Write( RADIO_REG_03_BITRATEMSB, 0 );
+	// Set for bit rate of 4800 bps
+	// Divide 4800 into 32000000 clock to get 6667
+	// 6667 = 0x1A0B
+	_Radio_SPI_Write( RADIO_REG_03_BITRATEMSB, 0x1A );
+	_Radio_SPI_Write( RADIO_REG_04_BITRATELSB, 0x0B );
 
-	// Bit Rate (LSB)
-	_Radio_SPI_Write( RADIO_REG_04_BITRATELSB, 0x80 );
-
-	// Deviation (MSB)
-	_Radio_SPI_Write( RADIO_REG_05_FDEVMSB, 0x10 );
-
-	// Deviation (LSB)
-	_Radio_SPI_Write( RADIO_REG_06_FDEVLSB, 0 );
-
+	// Set for a FM deviation of 5 kHz
+	// Divide 5000 by Fstep (60) = 82 = 0x0052
+	_Radio_SPI_Write( RADIO_REG_05_FDEVMSB, 0x0 );
+	_Radio_SPI_Write( RADIO_REG_06_FDEVLSB, 0x52 );
 
 	// RX BW
-	_Radio_SPI_Write( RADIO_REG_19_RXBW, 0 );
+	_Radio_SPI_Write( RADIO_REG_19_RXBW, 0xF4 );
 
 	// AFC BW
-	_Radio_SPI_Write( RADIO_REG_1A_AFCBW, 0 );
+	_Radio_SPI_Write( RADIO_REG_1A_AFCBW, 0xF4 );
 
 	// Packet Config (1)
 	uint8_t config = RADIO_PACKETCONFIG1_PACKETFORMAT_VARIABLE |
@@ -254,10 +294,10 @@ void _Radio_Set_Preamble_Length( uint8_t length ) {
  * Frequency in kHz (e.g. 915000 = 915.0 MHz)
  */
 void _Radio_Set_Frequency( uint32_t frequency) {
-	// The radio has a crystal frequency of 32 000 000 (32 MHz)
-	// Each step is 2^19
+	// The radio has a crystal frequency of 32000 kHz (32 MHz)
+	// Each step is 32 MHz / 2^19 = 61 Hz
 
-	uint32_t frf = (1 << 19) * frequency / 32000;
+	uint32_t frf = frequency * 1000 / 61;
 	_Radio_SPI_Write( RADIO_REG_07_FRFMSB, (frf >> 16) & 0xFF );
 	_Radio_SPI_Write( RADIO_REG_08_FRFMID, (frf >> 8) & 0xFF );
 	_Radio_SPI_Write( RADIO_REG_09_FRFLSB, frf & 0xFF );
@@ -337,25 +377,20 @@ void _Radio_Transmit_Test() {
 	radio_buffer[18] = 0xE0;	// Misc
 	radio_buffer[19] = 0xF0;	// Misc
 
-	_Radio_SPI_Select();
-	_Radio_SPI_Transfer( RADIO_REG_00_FIFO | 0x80 );
-	for ( uint8_t i = 0; i < 20; i++ ) {
-		_Radio_SPI_Transfer( radio_buffer[i] );
-	}
-
-	HAL_Delay( 5 );
+	_Radio_SPI_FIFO_Write( &(radio_buffer[0]), 20 );
 
 	// Start the transmitter
 	_Radio_Set_Mode_Tx();
 
+	uint8_t timeout_counter = 0;
 	uint8_t flags = 0;
-		do {
-			flags = _Radio_SPI_Read( RADIO_REG_28_IRQFLAGS2 );
-			HAL_Delay( 1 );
-		} while ( !( flags & RADIO_IRQFLAGS2_PACKETSENT ) );
+	do {
+		flags = _Radio_SPI_Read( RADIO_REG_28_IRQFLAGS2 );
+		HAL_Delay( 1 );
+		timeout_counter++;
+	} while ( ( timeout_counter < RADIO_MAX_MODE_TIMEOUT ) && !( flags & RADIO_IRQFLAGS2_PACKETSENT ) );
 
 	_Radio_Set_Mode_Idle();
-	_Radio_SPI_Unselect();
 }
 
 /**
@@ -377,15 +412,11 @@ uint8_t Radio_Init() {
 	_Radio_Reset();
 
 	// Read the radio chip ID. Should be 0x24
-	_Radio_SPI_Select();
 	uint8_t device_type = _Radio_SPI_Read( RADIO_REG_10_VERSION );
-	_Radio_SPI_Unselect();
 
 	if ( device_type != 0x24 ) {
 		return RADIO_FAILURE;
 	}
-
-	_Radio_SPI_Select();
 
 	_Radio_Set_Mode_Idle();
 
@@ -396,12 +427,10 @@ uint8_t Radio_Init() {
 
 	_Radio_Set_Sync_Words();
 	_Radio_Set_Modem_Config();
-	_Radio_Set_Preamble_Length( 4 );
-	_Radio_Set_Frequency( 9150 ); // 915.0 MHz
+	_Radio_Set_Preamble_Length( 44 ); // Was 4
+	_Radio_Set_Frequency( 915000 ); // 915000 kHz = 915.000 MHz
 	_Radio_Reset_Encryption_Key();
 	_Radio_Set_Tx_Power( 10 ); // +10 dBm
-
-	_Radio_SPI_Unselect();
 
 	return RADIO_SUCCESS;
 }
