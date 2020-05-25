@@ -39,6 +39,7 @@
 #define RADIO_REG_19_RXBW 0x19
 #define RADIO_REG_1A_AFCBW 0x1A
 
+#define RADIO_REG_24_RSSI 0x24
 #define RADIO_REG_27_IRQFLAGS1 0x27
 #define RADIO_REG_28_IRQFLAGS2 0x28
 #define RADIO_REG_2C_PREAMBLEMSB 0x2C
@@ -109,9 +110,10 @@ static osMessageQueueId_t radio_hqueue = 0;
 
 static uint8_t radio_mode = RADIO_MODE_UNKNOWN;
 
-static uint8_t radio_buffer_ready = 0;
 static volatile uint8_t radio_buffer_length = 0;
 static uint8_t radio_buffer[RADIO_MAX_MESSAGE_LEN];
+
+static int8_t radio_rssi = 0;
 
 static uint8_t radio_loop_count = 0;
 
@@ -330,25 +332,26 @@ void _Radio_Set_Tx_Power( int8_t power ) {
 	_Radio_SPI_Write( RADIO_REG_11_PALEVEL, palevel );
 }
 
-void _Radio_Read_FIFO() {
-	// TODO
-}
-
-uint8_t _Radio_Data_Available() {
-	// Make sure we are receiving
-	_Radio_Set_Mode_Rx();
-
-	// Return the buffer state
-	return radio_buffer_ready;
-}
-
-void Radio_Handle_Interrupt() {
-	// Get the interrupt reason
+void Radio_Receive() {
 	uint8_t irq_flags = _Radio_SPI_Read( RADIO_REG_28_IRQFLAGS2 );
 
-	if ( irq_flags & RADIO_IRQFLAGS2_PAYLOADREADY ) {
-		_Radio_Read_FIFO();
+	if ( ( irq_flags & RADIO_IRQFLAGS2_PAYLOADREADY ) != 0 ) {
+		_Radio_Set_Mode_Idle();
+
+		// Read the entire FIFO
+		_Radio_SPI_FIFO_Read( &(radio_buffer[0]), RADIO_MAX_MESSAGE_LEN );
+
+		// Read the RSSI
+		// The register returns a positive number in 0.5 dB steps
+		// So we need to divide by 2 and switch the sign to get RSSI in dBm
+		// (-115 to 0 dBm)
+		uint8_t raw_rssi = _Radio_SPI_Read( RADIO_REG_24_RSSI );
+		radio_rssi = - (int8_t) ( raw_rssi >> 1 );
+
+		// TODO - send it all to core
 	}
+
+	_Radio_Set_Mode_Rx();
 }
 
 void _Radio_Transmit_Test() {

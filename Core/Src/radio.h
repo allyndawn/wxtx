@@ -16,7 +16,6 @@ void Radio_Set_NCS_Pin( GPIO_TypeDef* gpio, uint16_t pin );
 
 void Radio_Set_Message_Queue( osMessageQueueId_t hqueue );
 
-void Radio_Handle_Interrupt();
 uint8_t Radio_Init();
 void Radio_Run();
 
