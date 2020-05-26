@@ -24,6 +24,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "core.h"
 #include "radio.h"
 #include "thp.h"
 #include "gps.h"

@@ -2,11 +2,9 @@
  * gps.c
  * Allen Snook
  * May 26, 2020
- *
- * Bosch BME280
  */
 
-#include "thp.h"
+#include "gps.h"
 #include "stm32f4xx_hal.h"
 #include "string.h"
 #include "stdlib.h" // for strtoul
@@ -24,27 +22,6 @@
 #define GPS_MAX_BUFFER_LENGTH 96
 #define GPS_GPRMC_TOKENS 12
 #define GPS_GPRMC_MAX_TOKEN_LENGTH 12
-
-typedef struct {
-	uint16_t year;
-	uint8_t month;
-	uint8_t day;
-	uint8_t hour;
-	uint8_t minutes;
-	uint8_t seconds;
-} gps_time_type;
-
-typedef struct {
-	uint8_t degrees;
-	uint8_t minutes;
-	uint8_t seconds;
-	char hem;
-} gps_angle_type;
-
-typedef struct {
-	gps_angle_type latitude;
-	gps_angle_type longitude;
-} gps_location_type;
 
 static UART_HandleTypeDef *gps_huart;
 static osMessageQueueId_t gps_hqueue;
