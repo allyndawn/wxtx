@@ -26,6 +26,7 @@
 /* USER CODE BEGIN Includes */
 #include "radio.h"
 #include "thp.h"
+#include "gps.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -639,10 +640,13 @@ void StartTHPTask(void *argument)
 void StartGPSTask(void *argument)
 {
   /* USER CODE BEGIN StartGPSTask */
+  GPS_Set_UART( &huart5 );
+  GPS_Set_Message_Queue( gpsToCoreHandle );
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+    GPS_Run();
+    osThreadYield();
   }
   /* USER CODE END StartGPSTask */
 }

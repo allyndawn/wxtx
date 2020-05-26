@@ -13,7 +13,7 @@
 #define THP_STATE_UNKNOWN 0
 #define THP_STATE_READY 1
 
-static SPI_HandleTypeDef *thp_spi;
+static I2C_HandleTypeDef *thp_hi2c;
 static osMessageQueueId_t thp_hqueue;
 static struct bme280_dev thp_dev;
 static struct bme280_data thp_data;
@@ -23,8 +23,8 @@ static uint8_t thp_result = 0;
 static uint32_t thp_meas_delay = 0;
 static uint8_t thp_state = THP_STATE_UNKNOWN;
 
-void THP_Set_I2C( SPI_HandleTypeDef *spi ) {
-	thp_spi = spi;
+void THP_Set_I2C( I2C_HandleTypeDef *hi2c ) {
+	thp_hi2c = hi2c;
 }
 
 void THP_Set_Message_Queue( osMessageQueueId_t hqueue ) {
