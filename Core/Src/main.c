@@ -25,6 +25,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "radio.h"
+#include "thp.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -106,7 +107,7 @@ static void MX_SPI1_Init(void);
 static void MX_UART5_Init(void);
 void StartCoreTask(void *argument);
 void StartRadioTask(void *argument);
-void startTHPTask(void *argument);
+void StartTHPTask(void *argument);
 void StartGPSTask(void *argument);
 
 /* USER CODE BEGIN PFP */
@@ -191,7 +192,7 @@ int main(void)
   radioTaskHandle = osThreadNew(StartRadioTask, NULL, &radioTask_attributes);
 
   /* creation of thpTask */
-  thpTaskHandle = osThreadNew(startTHPTask, NULL, &thpTask_attributes);
+  thpTaskHandle = osThreadNew(StartTHPTask, NULL, &thpTask_attributes);
 
   /* creation of gpsTask */
   gpsTaskHandle = osThreadNew(StartGPSTask, NULL, &gpsTask_attributes);
@@ -607,22 +608,25 @@ void StartRadioTask(void *argument)
   /* USER CODE END StartRadioTask */
 }
 
-/* USER CODE BEGIN Header_startTHPTask */
+/* USER CODE BEGIN Header_StartTHPTask */
 /**
 * @brief Function implementing the thpTask thread.
 * @param argument: Not used
 * @retval None
 */
-/* USER CODE END Header_startTHPTask */
-void startTHPTask(void *argument)
+/* USER CODE END Header_StartTHPTask */
+void StartTHPTask(void *argument)
 {
-  /* USER CODE BEGIN startTHPTask */
+  /* USER CODE BEGIN StartTHPTask */
+  THP_Set_I2C( &hi2c2 );
+  THP_Set_Message_Queue( thpToCoreHandle );
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+    THP_Run();
+    osThreadYield();
   }
-  /* USER CODE END startTHPTask */
+  /* USER CODE END StartTHPTask */
 }
 
 /* USER CODE BEGIN Header_StartGPSTask */
