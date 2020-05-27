@@ -23,15 +23,57 @@ static uint8_t thp_result = 0;
 static uint32_t thp_meas_delay = 0;
 static uint8_t thp_state = THP_STATE_UNKNOWN;
 
-void THP_Set_I2C( I2C_HandleTypeDef *hi2c ) {
-	thp_hi2c = hi2c;
+void _THP_Device_Delay_ms( uint32_t microsec ) {
+	uint32_t millisec = microsec / 1000;
+	if ( millisec < 1 ) {
+		millisec = 1;
+	}
+	HAL_Delay( millisec );
 }
 
-void THP_Set_Message_Queue( osMessageQueueId_t hqueue ) {
-	thp_hqueue = hqueue;
+int8_t _THP_Device_Read( uint8_t id, uint8_t reg_addr, uint8_t *data, uint16_t len ) {
+	if ( id != thp_dev.dev_id ) {
+		return BME280_E_COMM_FAIL;
+	}
+
+	HAL_StatusTypeDef halResult = HAL_I2C_Mem_Read(
+		thp_hi2c,
+		id << 1,
+		reg_addr,
+		I2C_MEMADD_SIZE_8BIT,
+		data,
+		len,
+		100
+	);
+
+	return ( HAL_OK == halResult ? BME280_OK : BME280_E_COMM_FAIL);
+}
+
+int8_t _THP_Device_Write( uint8_t id, uint8_t reg_addr, uint8_t *data, uint16_t len ) {
+	if ( id != thp_dev.dev_id ) {
+		return BME280_E_COMM_FAIL;
+	}
+
+	HAL_StatusTypeDef halResult = HAL_I2C_Mem_Write(
+		thp_hi2c,
+		id << 1,
+		reg_addr,
+		I2C_MEMADD_SIZE_8BIT,
+		data,
+		len,
+		100
+	);
+
+	return ( HAL_OK == halResult ? BME280_OK : BME280_E_COMM_FAIL);
 }
 
 void _THP_Init() {
+	thp_dev.dev_id = BME280_I2C_ADDR_PRIM;
+	thp_dev.intf = BME280_I2C_INTF;
+	thp_dev.read = _THP_Device_Read;
+	thp_dev.write = _THP_Device_Write;
+	thp_dev.delay_ms = _THP_Device_Delay_ms;
+
 	thp_result = bme280_init( &thp_dev );
 	if ( BME280_OK == thp_result ) {
 		thp_dev.settings.osr_h = BME280_OVERSAMPLING_1X;
@@ -50,6 +92,14 @@ void _THP_Init() {
 			thp_state = THP_STATE_READY;
 		}
 	}
+}
+
+void THP_Set_I2C( I2C_HandleTypeDef *hi2c ) {
+	thp_hi2c = hi2c;
+}
+
+void THP_Set_Message_Queue( osMessageQueueId_t hqueue ) {
+	thp_hqueue = hqueue;
 }
 
 void THP_Run() {
