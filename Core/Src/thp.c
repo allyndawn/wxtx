@@ -102,6 +102,14 @@ void THP_Set_Message_Queue( osMessageQueueId_t hqueue ) {
 	thp_hqueue = hqueue;
 }
 
+void _THP_Enqueue_Data() {
+	if ( ! thp_hqueue ) {
+		return;
+	}
+
+	osMessageQueuePut( thp_hqueue, (void *) &(thp_data), 0U, 0U );
+}
+
 void THP_Run() {
 	if ( THP_STATE_UNKNOWN == thp_state ) {
 		_THP_Init();
@@ -113,7 +121,7 @@ void THP_Run() {
 			HAL_Delay( thp_meas_delay );
 			thp_result = bme280_get_sensor_data( BME280_ALL, &thp_data, &thp_dev );
 			if ( BME280_OK == thp_result ) {
-				// TODO send the data to core
+				_THP_Enqueue_Data();
 			}
 		}
 	}

@@ -174,13 +174,13 @@ int main(void)
 
   /* Create the queue(s) */
   /* creation of gpsToCore */
-  gpsToCoreHandle = osMessageQueueNew (6, 9, &gpsToCore_attributes);
+  gpsToCoreHandle = osMessageQueueNew (3, 14, &gpsToCore_attributes);
 
   /* creation of thpToCore */
-  thpToCoreHandle = osMessageQueueNew (6, 9, &thpToCore_attributes);
+  thpToCoreHandle = osMessageQueueNew (3, 6, &thpToCore_attributes);
 
   /* creation of coreToRadio */
-  coreToRadioHandle = osMessageQueueNew (6, 9, &coreToRadio_attributes);
+  coreToRadioHandle = osMessageQueueNew (3, 24, &coreToRadio_attributes);
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */

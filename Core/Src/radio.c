@@ -115,8 +115,6 @@ static uint8_t radio_buffer[RADIO_MAX_MESSAGE_LEN];
 
 static int8_t radio_rssi = 0;
 
-static uint8_t radio_loop_count = 0;
-
 void _Radio_SPI_Select() {
 	if ( ! radio_ncs_gpio ) {
 		return;
@@ -354,33 +352,18 @@ void Radio_Receive() {
 	_Radio_Set_Mode_Rx();
 }
 
-void _Radio_Transmit_Test() {
-	radio_buffer[0] = 20;		// Size of the Frame
-	radio_buffer[1] = 0x0;		// Destination address
-	radio_buffer[2] = 0x0;		// Source address
-	radio_buffer[3] = 0x0;		// Control byte
+void _Radio_Handle_Transmit_Queue() {
+	if ( ! radio_hqueue ) {
+		return;
+	}
 
-	radio_buffer[4] = 0x1;		// Version
-	radio_buffer[5] = 0x10;		// Reserved
-	radio_buffer[6] = 0x20;		// Reserved
-	radio_buffer[7] = 0x30;		// Reserved
+	osStatus_t status = osMessageQueueGet( radio_hqueue, (void *) &(radio_buffer[0]), NULL, 0U );
+	if ( osOK != status ) {
+		// Nothing to transmit
+		return;
+	}
 
-	radio_buffer[8] = 0x40;		// Misc
-	radio_buffer[9] = 0x50;		// Misc
-	radio_buffer[10] = 0x60;	// Misc
-	radio_buffer[11] = 0x70;	// Misc
-
-	radio_buffer[12] = 0x80;	// Misc
-	radio_buffer[13] = 0x90;	// Misc
-	radio_buffer[14] = 0xA0;	// Misc
-	radio_buffer[15] = 0xB0;	// Misc
-
-	radio_buffer[16] = 0xC0;	// Misc
-	radio_buffer[17] = 0xD0;	// Misc
-	radio_buffer[18] = 0xE0;	// Misc
-	radio_buffer[19] = 0xF0;	// Misc
-
-	_Radio_SPI_FIFO_Write( &(radio_buffer[0]), 20 );
+	_Radio_SPI_FIFO_Write( &(radio_buffer[0]), radio_buffer[0] ); // radio_buffer[0] contains the packet length
 
 	// Start the transmitter
 	_Radio_Set_Mode_Tx();
@@ -395,7 +378,6 @@ void _Radio_Transmit_Test() {
 
 	_Radio_Set_Mode_Idle();
 }
-
 /**
  * Takes the pin high, briefly, to reset the radio
  */
@@ -457,19 +439,13 @@ void Radio_Set_Message_Queue( osMessageQueueId_t hqueue ) {
 }
 
 void Radio_Run() {
-	radio_loop_count++;
-
 	// If we haven't spoken to the radio yet, try again
 	if ( RADIO_MODE_UNKNOWN == radio_mode ) {
 		Radio_Init();
 	}
 
 	if ( RADIO_MODE_IDLE == radio_mode ) {
-		// Once we have data from core, transmit it every 5 seconds
-		if ( radio_loop_count >= 10 ) {
-			radio_loop_count = 0;
-			_Radio_Transmit_Test();
-		}
+		_Radio_Handle_Transmit_Queue();
 	}
 
 	// Update our status LEDs

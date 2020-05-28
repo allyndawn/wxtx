@@ -1,7 +1,7 @@
 #MicroXplorer Configuration settings - do not modify
 FREERTOS.FootprintOK=true
 FREERTOS.IPParameters=Tasks01,FootprintOK,Queues01
-FREERTOS.Queues01=gpsToCore,6,9,1,Dynamic,NULL,NULL;thpToCore,6,9,1,Dynamic,NULL,NULL;coreToRadio,6,9,1,Dynamic,NULL,NULL
+FREERTOS.Queues01=gpsToCore,3,14,1,Dynamic,NULL,NULL;thpToCore,3,6,1,Dynamic,NULL,NULL;coreToRadio,3,24,1,Dynamic,NULL,NULL
 FREERTOS.Tasks01=coreTask,16,128,StartCoreTask,Default,NULL,Dynamic,NULL,NULL;radioTask,16,128,StartRadioTask,Default,NULL,Dynamic,NULL,NULL;thpTask,16,128,StartTHPTask,Default,NULL,Dynamic,NULL,NULL;gpsTask,16,128,StartGPSTask,Default,NULL,Dynamic,NULL,NULL
 File.Version=6
 KeepUserPlacement=false

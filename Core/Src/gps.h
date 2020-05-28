@@ -11,25 +11,21 @@
 #include "cmsis_os.h"
 
 typedef struct {
-	uint16_t year;
-	uint8_t month;
-	uint8_t day;
-	uint8_t hour;
-	uint8_t minutes;
-	uint8_t seconds;
-} gps_time_type;
-
-typedef struct {
-	uint8_t degrees;
-	uint8_t minutes;
-	uint8_t seconds;
-	char hem;
-} gps_angle_type;
-
-typedef struct {
-	gps_angle_type latitude;
-	gps_angle_type longitude;
-} gps_location_type;
+	uint8_t year;				// Years since 2000
+	uint8_t month;				// 1 to 12
+	uint8_t day;				// 1 to 31
+	uint8_t hour;				// 0 to 23
+	uint8_t minutes;			// 0 to 59
+	uint8_t seconds;			// 0 to 59
+	uint8_t latitude_degrees;	// 0 to 90
+	uint8_t latitude_minutes;	// 0 to 59
+	uint8_t latitude_seconds;	// 0 to 59
+	char latitude_hem;			// N or S
+	uint8_t longitude_degrees;	// 0 to 180
+	uint8_t longitude_minutes;	// 0 to 59
+	uint8_t longitude_seconds;	// 0 to 59
+	char longitude_hem;			// W or E
+} gps_data_type; // 14 bytes
 
 void GPS_Set_UART( UART_HandleTypeDef *huart );
 void GPS_Set_Message_Queue( osMessageQueueId_t hqueue );

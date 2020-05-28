@@ -34,8 +34,7 @@ static char gps_buffer[GPS_MAX_BUFFER_LENGTH];
 static uint8_t gps_buffer_length = 0;
 
 static char gps_scratchpad[GPS_GPRMC_TOKENS][GPS_GPRMC_MAX_TOKEN_LENGTH];
-static gps_time_type gps_time;
-static gps_location_type gps_location;
+static gps_data_type gps_data;
 
 void GPS_Set_UART( UART_HandleTypeDef *huart ) {
 	gps_huart = huart;
@@ -127,24 +126,23 @@ uint8_t _GPS_Process_Buffer() {
 		return FALSE;
 	}
 
-	gps_time_type new_time = { 0 };
-	gps_location_type new_location = { 0 };
+	gps_data_type new_gps_data = { 0 };
 
 	// Scratchpad Entry #1: Time stamp (hhmmss.xx)
 	if ( strlen( gps_scratchpad[1] ) < 6 ) {
 		return FALSE;
 	}
-	new_time.hour = _GPS_Int_From_String( 1, 0, 2 );
-	new_time.minutes = _GPS_Int_From_String( 1, 2, 2 );
-	new_time.seconds = _GPS_Int_From_String( 1, 4, 2 );
+	new_gps_data.hour = _GPS_Int_From_String( 1, 0, 2 );
+	new_gps_data.minutes = _GPS_Int_From_String( 1, 2, 2 );
+	new_gps_data.seconds = _GPS_Int_From_String( 1, 4, 2 );
 
 	// Scratchpad Entry #9: Date stamp (ddmmyy)
 	if ( strlen( gps_scratchpad[9] ) != 6 ) {
 		return FALSE;
 	}
-	new_time.year = _GPS_Int_From_String( 9, 4, 2 );
-	new_time.month = _GPS_Int_From_String( 9, 2, 2 );
-	new_time.day = _GPS_Int_From_String( 9, 0, 2 );
+	new_gps_data.year = _GPS_Int_From_String( 9, 4, 2 );
+	new_gps_data.month = _GPS_Int_From_String( 9, 2, 2 );
+	new_gps_data.day = _GPS_Int_From_String( 9, 0, 2 );
 
 	uint16_t seconds = 0;
 
@@ -155,17 +153,17 @@ uint8_t _GPS_Process_Buffer() {
 	if ( '.' != gps_scratchpad[3][4] ) {
 		return FALSE;
 	}
-	new_location.latitude.degrees = _GPS_Int_From_String( 3, 0, 2 );
-	new_location.latitude.minutes = _GPS_Int_From_String( 3, 2, 2 );
+	new_gps_data.latitude_degrees = _GPS_Int_From_String( 3, 0, 2 );
+	new_gps_data.latitude_minutes = _GPS_Int_From_String( 3, 2, 2 );
 	seconds = _GPS_Int_From_String( 3, 5, 2 );
 	seconds = seconds * 60 / 100;
-	new_location.latitude.seconds = seconds;
+	new_gps_data.latitude_seconds = seconds;
 
 	// Scratchpad Entry #4: North/South (N or S)
 	if ( 'N' != gps_scratchpad[4][0] && 'S' != gps_scratchpad[4][0] ) {
 		return FALSE;
 	}
-	new_location.latitude.hem = gps_scratchpad[4][0];
+	new_gps_data.latitude_hem = gps_scratchpad[4][0];
 
 	// Scratchpad Entry #5: Longitude (dddmm.xxxxx)
 	if ( strlen( gps_scratchpad[5] ) < 8 ) {
@@ -174,27 +172,30 @@ uint8_t _GPS_Process_Buffer() {
 	if ( '.' != gps_scratchpad[5][5] ) {
 		return FALSE;
 	}
-	new_location.longitude.degrees = _GPS_Int_From_String( 5, 0, 3 );
-	new_location.longitude.minutes = _GPS_Int_From_String( 5, 3, 2 );
+	new_gps_data.longitude_degrees = _GPS_Int_From_String( 5, 0, 3 );
+	new_gps_data.longitude_minutes = _GPS_Int_From_String( 5, 3, 2 );
 	seconds = _GPS_Int_From_String( 5, 6, 2 );
 	seconds = seconds * 60 / 100;
-	new_location.longitude.seconds = seconds;
+	new_gps_data.longitude_seconds = seconds;
 
 	// Scratchpad Entry #6: East/West (E or W)
 	if ( 'E' != gps_scratchpad[6][0] && 'W' != gps_scratchpad[6][0] ) {
 		return FALSE;
 	}
-	new_location.longitude.hem = gps_scratchpad[6][0];
+	new_gps_data.longitude_hem = gps_scratchpad[6][0];
 
 	// All is well - persist the new time and location
-	gps_time = new_time;
-	gps_location = new_location;
+	gps_data = new_gps_data;
 
 	return TRUE;
 }
 
 void _GPS_Enqueue_Data() {
-	// TODO
+	if ( ! gps_hqueue ) {
+		return;
+	}
+
+	osMessageQueuePut( gps_hqueue, (void *) &(gps_data), 0U, 0U );
 }
 
 void GPS_Run() {
