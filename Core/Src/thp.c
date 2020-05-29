@@ -16,7 +16,9 @@
 static I2C_HandleTypeDef *thp_hi2c;
 static osMessageQueueId_t thp_hqueue;
 static struct bme280_dev thp_dev;
-static struct bme280_data thp_data;
+static struct bme280_data thp_bme_data;
+
+static thp_data_type thp_data;
 
 static uint8_t thp_settings = 0;
 static uint8_t thp_result = 0;
@@ -107,6 +109,10 @@ void _THP_Enqueue_Data() {
 		return;
 	}
 
+	thp_data.pressure = (uint16_t) thp_bme_data.pressure;
+	thp_data.temperature = (int16_t) thp_bme_data.temperature;
+	thp_data.humidity = (uint16_t) thp_bme_data.humidity;
+
 	osMessageQueuePut( thp_hqueue, (void *) &(thp_data), 0U, 0U );
 }
 
@@ -119,7 +125,7 @@ void THP_Run() {
 		thp_result = bme280_set_sensor_mode( BME280_FORCED_MODE, &thp_dev );
 		if ( BME280_OK == thp_result ) {
 			HAL_Delay( thp_meas_delay );
-			thp_result = bme280_get_sensor_data( BME280_ALL, &thp_data, &thp_dev );
+			thp_result = bme280_get_sensor_data( BME280_ALL, &thp_bme_data, &thp_dev );
 			if ( BME280_OK == thp_result ) {
 				_THP_Enqueue_Data();
 			}
