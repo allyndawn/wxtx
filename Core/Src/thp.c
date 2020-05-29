@@ -109,9 +109,9 @@ void _THP_Enqueue_Data() {
 		return;
 	}
 
-	thp_data.pressure = (uint16_t) thp_bme_data.pressure;
-	thp_data.temperature = (int16_t) thp_bme_data.temperature;
-	thp_data.humidity = (uint16_t) thp_bme_data.humidity;
+	thp_data.pressure = (uint16_t) ( thp_bme_data.pressure / 10 );
+	thp_data.temperature = (int16_t) ( thp_bme_data.temperature / 10 );
+	thp_data.humidity = (uint16_t) ( thp_bme_data.humidity / 100 );
 
 	osMessageQueuePut( thp_hqueue, (void *) &(thp_data), 0U, 0U );
 }
