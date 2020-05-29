@@ -579,10 +579,15 @@ static void MX_GPIO_Init(void)
 void StartCoreTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
+  Core_Set_RTC_Handle( &hrtc );
+  Core_Set_THP_Message_Queue( thpToCoreHandle );
+  Core_Set_GPS_Message_Queue( gpsToCoreHandle );
+  Core_Set_Radio_Message_Queue( coreToRadioHandle );
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+    Core_Run();
+    osThreadYield();
   }
   /* USER CODE END 5 */ 
 }
