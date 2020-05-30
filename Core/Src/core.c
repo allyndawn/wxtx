@@ -33,7 +33,7 @@ static osStatus_t core_os_status;
 static uint8_t core_has_thp_data = FALSE;
 static uint8_t core_has_gps_data = FALSE;
 
-static uint16_t core_loop_time = 0;
+static uint32_t core_loop_time = 0;
 
 static RTC_DateTypeDef core_rtc_date;
 static RTC_TimeTypeDef core_rtc_time;
@@ -175,6 +175,12 @@ void Core_Run() {
 	if ( CORE_TRANSMIT_INTERVAL <= core_loop_time ) {
 		core_loop_time = 0;
 		_Core_Prepare_Packet();
+	}
+
+	if ( ! core_has_thp_data || ! core_has_gps_data ) {
+		HAL_GPIO_TogglePin( GPIOB, GPIO_PIN_0 ); // Green PB0 LD1
+	} else {
+		HAL_GPIO_WritePin( GPIOB, GPIO_PIN_0, GPIO_PIN_SET ); // Green PB0 LD1
 	}
 
 	osDelay( CORE_LOOP_DELAY );

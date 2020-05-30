@@ -98,6 +98,7 @@
 
 // Output Power
 #define RADIO_PALEVEL_PA0ON 0x80
+#define RADIO_PALEVEL_PA1ON 0x40
 #define RADIO_PALEVEL_OUTPUTPOWER 0x1F
 
 // Module variables
@@ -325,7 +326,7 @@ void _Radio_Set_Tx_Power( int8_t power ) {
 		power = 13;
 	}
 
-	uint8_t palevel = RADIO_PALEVEL_PA0ON | ( ( power + 18 ) & RADIO_PALEVEL_OUTPUTPOWER );
+	uint8_t palevel = RADIO_PALEVEL_PA1ON | ( ( power + 18 ) & RADIO_PALEVEL_OUTPUTPOWER );
 
 	_Radio_SPI_Write( RADIO_REG_11_PALEVEL, palevel );
 }
@@ -360,8 +361,11 @@ void _Radio_Handle_Transmit_Queue() {
 	osStatus_t status = osMessageQueueGet( radio_hqueue, (void *) &(radio_buffer[0]), NULL, 0U );
 	if ( osOK != status ) {
 		// Nothing to transmit
+		HAL_GPIO_TogglePin( GPIOB, GPIO_PIN_14 ); // Red PB14 LD3
 		return;
 	}
+
+	HAL_GPIO_WritePin( GPIOB, GPIO_PIN_14, GPIO_PIN_SET ); // Red PB14 LD3
 
 	_Radio_SPI_FIFO_Write( &(radio_buffer[0]), radio_buffer[0] ); // radio_buffer[0] contains the packet length
 
@@ -415,7 +419,7 @@ uint8_t Radio_Init() {
 	_Radio_Set_Preamble_Length( 44 ); // Was 4
 	_Radio_Set_Frequency( 915000 ); // 915000 kHz = 915.000 MHz
 	_Radio_Reset_Encryption_Key();
-	_Radio_Set_Tx_Power( 10 ); // +10 dBm
+	_Radio_Set_Tx_Power( 13 ); // +13 dBm
 
 	return RADIO_SUCCESS;
 }
@@ -441,15 +445,14 @@ void Radio_Set_Message_Queue( osMessageQueueId_t hqueue ) {
 void Radio_Run() {
 	// If we haven't spoken to the radio yet, try again
 	if ( RADIO_MODE_UNKNOWN == radio_mode ) {
+		HAL_GPIO_WritePin( GPIOB, GPIO_PIN_14, GPIO_PIN_RESET ); // Red PB14 LD3
 		Radio_Init();
 	}
 
 	if ( RADIO_MODE_IDLE == radio_mode ) {
 		_Radio_Handle_Transmit_Queue();
-	}
 
-	// Update our status LEDs
-	HAL_GPIO_TogglePin( GPIOB, GPIO_PIN_14 );
+	}
 
 	// Sleep before returning
 	osDelay( 500 );

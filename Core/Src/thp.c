@@ -118,6 +118,7 @@ void _THP_Enqueue_Data() {
 
 void THP_Run() {
 	if ( THP_STATE_UNKNOWN == thp_state ) {
+		HAL_GPIO_TogglePin( GPIOB, GPIO_PIN_7 ); // Blue PB7 LD2
 		_THP_Init();
 	}
 
@@ -127,6 +128,7 @@ void THP_Run() {
 			HAL_Delay( thp_meas_delay );
 			thp_result = bme280_get_sensor_data( BME280_ALL, &thp_bme_data, &thp_dev );
 			if ( BME280_OK == thp_result ) {
+				HAL_GPIO_WritePin( GPIOB, GPIO_PIN_7, GPIO_PIN_SET ); // Blue PB7 LD2
 				_THP_Enqueue_Data();
 			}
 		}
