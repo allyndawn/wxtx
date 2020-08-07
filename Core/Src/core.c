@@ -16,7 +16,7 @@
 #endif
 
 #define CORE_LOOP_DELAY 250
-#define CORE_TRANSMIT_INTERVAL 60000
+#define CORE_TRANSMIT_INTERVAL 5000
 
 #define CORE_RADIO_TX_PACKET_LENGTH 24
 
@@ -86,7 +86,7 @@ void _Core_Handle_GPS_Queue() {
 	}
 
 	// Receive the gps_data_type structure (14 bytes)
-	core_hal_status = osMessageQueueGet( core_gps_hqueue, (void *) &core_gps_data, NULL, 0U );
+	core_os_status = osMessageQueueGet( core_gps_hqueue, (void *) &core_gps_data, NULL, 0U );
 	if ( core_os_status == osOK ) {
 		core_has_gps_data = TRUE;
 		_Core_Update_RTC();
@@ -99,7 +99,7 @@ void _Core_Handle_THP_Queue() {
 	}
 
 	// Receive the thp_data_type structure (6 bytes)
-	core_hal_status = osMessageQueueGet( core_thp_hqueue, (void *) &core_thp_data, NULL, 0U );
+	core_os_status = osMessageQueueGet( core_thp_hqueue, (void *) &core_thp_data, NULL, 0U );
 	if ( core_os_status == osOK ) {
 		core_has_thp_data = TRUE;
 	}
