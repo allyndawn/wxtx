@@ -16,7 +16,7 @@
 #endif
 
 #define CORE_LOOP_DELAY 250
-#define CORE_TRANSMIT_INTERVAL 5000
+#define CORE_TRANSMIT_INTERVAL 10000
 
 #define CORE_RADIO_TX_PACKET_LENGTH 24
 
@@ -130,12 +130,13 @@ void _Core_Prepare_Packet() {
 	}
 
 	// Get the latest date and time from the RTC
-	core_hal_status = HAL_RTC_GetDate( core_hrtc, &core_rtc_date, RTC_FORMAT_BIN );
+	// You must call HAL_RTC_GetDate () AFTER HAL_RTC_GetTime ()
+	core_hal_status = HAL_RTC_GetTime( core_hrtc, &core_rtc_time, RTC_FORMAT_BIN );
 	if ( core_hal_status != HAL_OK ) {
 		return;
 	}
 
-	core_hal_status = HAL_RTC_GetTime( core_hrtc, &core_rtc_time, RTC_FORMAT_BIN );
+	core_hal_status = HAL_RTC_GetDate( core_hrtc, &core_rtc_date, RTC_FORMAT_BIN );
 	if ( core_hal_status != HAL_OK ) {
 		return;
 	}
