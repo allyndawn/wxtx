@@ -1,5 +1,7 @@
 # WX-TX (Outdoor Unit / Transmitter)
 
+![Outdoor Unit / Transmitter](/Media/wx-tx.png)
+
 ## Overview
 
 You’ve found the GitHub repository for the outdoor unit / transmitter part of my wireless weather station, a.k.a. WX-TX.
